@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:io';
 import 'pumo_home_screen.dart';
 import 'pumo_chat_list_screen.dart';
 import 'pumo_profile_screen.dart';
+import 'pumo_subscriptions_screen.dart';
 import '../widgets/pumo_tab_bar.dart';
 import '../theme/pumo_theme.dart';
 
@@ -23,6 +25,183 @@ class _PumoMainScreenState extends State<PumoMainScreen> {
     Container(), // 第三个tab用于弹出创建AI页面，不需要实际页面
     const PumoProfileScreen(),
   ];
+
+  // 检查VIP月订阅状态
+  Future<bool> _checkMonthlyVipStatus() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final isVip = prefs.getBool('isVip') ?? false;
+      final expiryStr = prefs.getString('vipExpiry');
+      final vipType = prefs.getString('vip_type') ?? '';
+      
+      if (!isVip || vipType != 'monthly') {
+        return false;
+      }
+      
+      if (expiryStr != null) {
+        final vipExpiry = DateTime.tryParse(expiryStr);
+        if (vipExpiry != null && vipExpiry.isBefore(DateTime.now())) {
+          // VIP已过期，清除状态
+          await prefs.setBool('isVip', false);
+          await prefs.remove('vipExpiry');
+          await prefs.remove('vip_type');
+          return false;
+        }
+      }
+      
+      return true;
+    } catch (e) {
+      debugPrint('Error checking monthly VIP status: $e');
+      return false;
+    }
+  }
+
+  // 显示月订阅VIP要求弹窗
+  void _showMonthlyVipRequiredDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: Row(
+            children: [
+              Icon(
+                Icons.workspace_premium,
+                color: Colors.amber,
+                size: 28,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Monthly Premium',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: PumoTheme.secondaryColor,
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'To create AI characters, you need Pumo Monthly Premium.',
+                style: const TextStyle(fontSize: 16),
+              ),
+              const SizedBox(height: 16),
+              // 月订阅价格信息
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Colors.amber.withOpacity(0.1),
+                      PumoTheme.accentColor.withOpacity(0.1),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: Colors.amber.withOpacity(0.3),
+                    width: 1,
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.calendar_month,
+                          color: Colors.amber[700],
+                          size: 24,
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          'Monthly',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.amber[700],
+                          ),
+                        ),
+                      ],
+                    ),
+                    Text(
+                      '\$49.99',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.amber[700],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(
+                'Cancel',
+                style: TextStyle(
+                  color: Colors.grey[600],
+                  fontSize: 16,
+                ),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _navigateToSubscriptions();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.amber[700],
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Text(
+                'Upgrade Now',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // 导航到订阅页面（默认选择月订阅）
+  void _navigateToSubscriptions() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const PumoPremiumScreen(initialPlanIndex: 1), // 1 = 月订阅
+      ),
+    );
+  }
+
+  // 处理第三个tab点击
+  Future<void> _handleCreateAITap() async {
+    // 检查VIP月订阅状态
+    final hasMonthlyVip = await _checkMonthlyVipStatus();
+    
+    if (hasMonthlyVip) {
+      // 有月订阅VIP，正常弹出创建AI页面
+      _showCreateAIBottomSheet();
+    } else {
+      // 没有月订阅VIP，显示提示弹窗
+      _showMonthlyVipRequiredDialog();
+    }
+  }
 
   void _showCreateAIBottomSheet() {
     showModalBottomSheet(
@@ -44,8 +223,8 @@ class _PumoMainScreenState extends State<PumoMainScreen> {
         currentIndex: _currentIndex,
         onTap: (index) {
           if (index == 2) {
-            // 第三个tab弹出创建AI角色页面
-            _showCreateAIBottomSheet();
+            // 第三个tab检查VIP月订阅后弹出创建AI角色页面
+            _handleCreateAITap();
           } else {
           setState(() {
             _currentIndex = index;

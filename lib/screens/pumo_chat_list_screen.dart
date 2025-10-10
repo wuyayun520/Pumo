@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'pumo_user_detail_screen.dart';
+import 'pumo_subscriptions_screen.dart';
 
 class UserData {
   final String userId;
@@ -90,7 +91,7 @@ class _PumoChatListScreenState extends State<PumoChatListScreen> {
         _likedUsers = Set<String>.from(likedUsersList);
       });
     } catch (e) {
-      print('Error loading liked users: $e');
+      debugPrint('Error loading liked users: $e');
     }
   }
 
@@ -99,7 +100,7 @@ class _PumoChatListScreenState extends State<PumoChatListScreen> {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setStringList('liked_users', _likedUsers.toList());
     } catch (e) {
-      print('Error saving liked users: $e');
+      debugPrint('Error saving liked users: $e');
     }
   }
 
@@ -112,6 +113,254 @@ class _PumoChatListScreenState extends State<PumoChatListScreen> {
       }
     });
     _saveLikedUsers();
+  }
+
+  Future<bool> _checkVipStatus() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final isVip = prefs.getBool('isVip') ?? false;
+      final expiryStr = prefs.getString('vipExpiry');
+      
+      if (!isVip) {
+        return false;
+      }
+      
+      // 检查VIP是否过期
+      if (expiryStr != null) {
+        final vipExpiry = DateTime.tryParse(expiryStr);
+        if (vipExpiry != null && vipExpiry.isBefore(DateTime.now())) {
+          // VIP已过期，清除状态
+          await prefs.setBool('isVip', false);
+          await prefs.remove('vipExpiry');
+          await prefs.remove('vip_type');
+          return false;
+        }
+      }
+      
+      return true;
+    } catch (e) {
+      debugPrint('Error checking VIP status: $e');
+      return false;
+    }
+  }
+
+  Future<void> _handleUserTap(UserData user) async {
+    // 检查VIP状态
+    final isVip = await _checkVipStatus();
+    
+    if (isVip) {
+      // 是VIP会员，正常跳转
+      _navigateToUserDetail(user);
+    } else {
+      // 不是VIP会员，显示提示弹窗
+      _showVipRequiredDialog();
+    }
+  }
+
+  void _navigateToUserDetail(UserData user) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => PumoUserDetailScreen(
+          userId: user.userId,
+          userName: user.userName,
+          userAvatar: user.userAvatar,
+          userDescription: user.userDescription,
+          userAge: user.userAge,
+          userGender: user.userGender,
+          userNationality: user.userNationality,
+          userInterests: user.userInterests,
+        ),
+      ),
+    );
+  }
+
+  void _showVipRequiredDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: Row(
+            children: [
+              Icon(
+                Icons.workspace_premium,
+                color: Colors.amber,
+                size: 28,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Premium Required',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.deepPurple,
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'To view user profiles, you need to upgrade to Pumo Premium.',
+                style: const TextStyle(fontSize: 16),
+              ),
+              const SizedBox(height: 16),
+              // 订阅价格信息
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Colors.deepPurple.withOpacity(0.1),
+                      Colors.amber.withOpacity(0.1),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: Colors.deepPurple.withOpacity(0.3),
+                    width: 1,
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    // 周订阅
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.calendar_view_week,
+                              color: Colors.deepPurple,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Weekly',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.deepPurple,
+                              ),
+                            ),
+                          ],
+                        ),
+                        Text(
+                          '\$12.99',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.deepPurple,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    // 分割线
+                    Container(
+                      height: 1,
+                      color: Colors.grey.withOpacity(0.3),
+                    ),
+                    const SizedBox(height: 12),
+                    // 月订阅
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.calendar_month,
+                              color: Colors.amber[700],
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Monthly',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.amber[700],
+                                  ),
+                                ),
+                                Text(
+                                  'Most Popular',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.amber[600],
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        Text(
+                          '\$49.99',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.amber[700],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(
+                'Cancel',
+                style: TextStyle(
+                  color: Colors.grey[600],
+                  fontSize: 16,
+                ),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _navigateToSubscriptions();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.deepPurple,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Text(
+                'Choose Plan',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _navigateToSubscriptions() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const PumoPremiumScreen(),
+      ),
+    );
   }
 
   void _showErrorSnackBar(String message) {
@@ -187,23 +436,7 @@ class _PumoChatListScreenState extends State<PumoChatListScreen> {
 
   Widget _buildUserCardLeftToRight(UserData user) {
     return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => PumoUserDetailScreen(
-              userId: user.userId,
-              userName: user.userName,
-              userAvatar: user.userAvatar,
-              userDescription: user.userDescription,
-              userAge: user.userAge,
-              userGender: user.userGender,
-              userNationality: user.userNationality,
-              userInterests: user.userInterests,
-            ),
-          ),
-        );
-      },
+      onTap: () => _handleUserTap(user),
       child: Container(
         height: 180, // 增加卡片高度
         decoration: BoxDecoration(
@@ -310,23 +543,7 @@ class _PumoChatListScreenState extends State<PumoChatListScreen> {
 
   Widget _buildUserCardRightToLeft(UserData user) {
     return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => PumoUserDetailScreen(
-              userId: user.userId,
-              userName: user.userName,
-              userAvatar: user.userAvatar,
-              userDescription: user.userDescription,
-              userAge: user.userAge,
-              userGender: user.userGender,
-              userNationality: user.userNationality,
-              userInterests: user.userInterests,
-            ),
-          ),
-        );
-      },
+      onTap: () => _handleUserTap(user),
       child: Container(
         height: 180, // 增加卡片高度
         decoration: BoxDecoration(

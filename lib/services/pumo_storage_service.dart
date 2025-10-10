@@ -110,6 +110,49 @@ class PumoStorageService {
     );
   }
 
+  // Gold Coins Management
+  static Future<int> getGoldCoins() async {
+    await init();
+    return _prefs!.getInt(PumoConstants.goldCoinsKey) ?? 0;
+  }
+
+  static Future<void> setGoldCoins(int amount) async {
+    await init();
+    await _prefs!.setInt(PumoConstants.goldCoinsKey, amount);
+  }
+
+  static Future<bool> deductGoldCoins(int amount) async {
+    await init();
+    final currentCoins = await getGoldCoins();
+    if (currentCoins >= amount) {
+      await setGoldCoins(currentCoins - amount);
+      return true;
+    }
+    return false;
+  }
+
+  // Character Unlock Management
+  static Future<Set<String>> getUnlockedCharacters() async {
+    await init();
+    final unlockedList = _prefs!.getStringList(PumoConstants.unlockedCharactersKey) ?? [];
+    return Set<String>.from(unlockedList);
+  }
+
+  static Future<bool> isCharacterUnlocked(String characterId) async {
+    final unlockedCharacters = await getUnlockedCharacters();
+    return unlockedCharacters.contains(characterId);
+  }
+
+  static Future<void> unlockCharacter(String characterId) async {
+    await init();
+    final unlockedCharacters = await getUnlockedCharacters();
+    unlockedCharacters.add(characterId);
+    await _prefs!.setStringList(
+      PumoConstants.unlockedCharactersKey,
+      unlockedCharacters.toList(),
+    );
+  }
+
   // Utility Methods
   static Future<void> clearAllData() async {
     await init();

@@ -7,6 +7,8 @@ import '../theme/pumo_theme.dart';
 import 'pumo_terms_screen.dart';
 import 'pumo_privacy_screen.dart';
 import 'pumo_about_screen.dart';
+import 'pumo_subscriptions_screen.dart';
+import 'pumo_inapppurchases_screen.dart';
 
 class PumoProfileScreen extends StatefulWidget {
   const PumoProfileScreen({super.key});
@@ -57,6 +59,238 @@ class _PumoProfileScreenState extends State<PumoProfileScreen> {
       await avatarDir.create(recursive: true);
     }
     return File('${avatarDir.path}/$fileName');
+  }
+
+  // 检查VIP状态
+  Future<bool> _checkVipStatus() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final isVip = prefs.getBool('isVip') ?? false;
+      final expiryStr = prefs.getString('vipExpiry');
+      
+      if (!isVip) {
+        return false;
+      }
+      
+      if (expiryStr != null) {
+        final vipExpiry = DateTime.tryParse(expiryStr);
+        if (vipExpiry != null && vipExpiry.isBefore(DateTime.now())) {
+          // VIP已过期，清除状态
+          await prefs.setBool('isVip', false);
+          await prefs.remove('vipExpiry');
+          return false;
+        }
+      }
+      
+      return true;
+    } catch (e) {
+      debugPrint('Error checking VIP status: $e');
+      return false;
+    }
+  }
+
+  // 显示VIP要求弹窗
+  void _showVipRequiredDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: Row(
+            children: [
+              Icon(
+                Icons.workspace_premium,
+                color: Colors.amber,
+                size: 28,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Premium Required',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: PumoTheme.secondaryColor,
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'To modify your avatar, you need to upgrade to Pumo Premium.',
+                style: const TextStyle(fontSize: 16),
+              ),
+              const SizedBox(height: 16),
+              // 订阅价格信息
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      PumoTheme.secondaryColor.withOpacity(0.1),
+                      PumoTheme.accentColor.withOpacity(0.1),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: PumoTheme.secondaryColor.withOpacity(0.3),
+                    width: 1,
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    // 周订阅
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.calendar_view_week,
+                              color: PumoTheme.secondaryColor,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Weekly',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: PumoTheme.secondaryColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                        Text(
+                          '\$12.99',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: PumoTheme.secondaryColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    // 分割线
+                    Container(
+                      height: 1,
+                      color: Colors.grey.withOpacity(0.3),
+                    ),
+                    const SizedBox(height: 12),
+                    // 月订阅
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.calendar_month,
+                              color: Colors.amber[700],
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Monthly',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.amber[700],
+                                  ),
+                                ),
+                                Text(
+                                  'Most Popular',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.amber[600],
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        Text(
+                          '\$49.99',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.amber[700],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(
+                'Cancel',
+                style: TextStyle(
+                  color: Colors.grey[600],
+                  fontSize: 16,
+                ),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _navigateToSubscriptions();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: PumoTheme.secondaryColor,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Text(
+                'Choose Plan',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // 导航到订阅页面
+  void _navigateToSubscriptions() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const PumoPremiumScreen(),
+      ),
+    );
+  }
+
+  // 处理头像点击
+  Future<void> _handleAvatarTap() async {
+    // 检查VIP状态
+    final isVip = await _checkVipStatus();
+    
+    if (isVip) {
+      // 是VIP会员，正常选择头像
+      _pickAvatar();
+    } else {
+      // 不是VIP会员，显示提示弹窗
+      _showVipRequiredDialog();
+    }
   }
 
   // 选择头像
@@ -384,7 +618,7 @@ class _PumoProfileScreenState extends State<PumoProfileScreen> {
                             right: 0,
                             child: Center(
                               child: GestureDetector(
-                                onTap: _pickAvatar,
+                                onTap: _handleAvatarTap,
                                 child: Stack(
                                   children: [
                                     Container(
@@ -491,6 +725,132 @@ class _PumoProfileScreenState extends State<PumoProfileScreen> {
                           ),
                         ),
                       ),
+                    ),
+                    
+                    const SizedBox(height: 20),
+                    
+                    // VIP和钱包按钮区域
+                    Row(
+                      children: [
+                        // VIP按钮
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const PumoPremiumScreen(),
+                                ),
+                              );
+                            },
+                            child: Container(
+                              height: 80,
+                              margin: const EdgeInsets.only(right: 8),
+                             
+                              child: ClipRRect(
+                               
+                                child: Image.asset(
+                                  'assets/resources/pumo_me_vip_compressed.webp',
+                                  fit: BoxFit.contain,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return Container(
+                                      decoration: BoxDecoration(
+                                        gradient: LinearGradient(
+                                          colors: [
+                                            PumoTheme.primaryColor.withOpacity(0.8),
+                                            PumoTheme.secondaryColor.withOpacity(0.8),
+                                          ],
+                                        ),
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                      child: const Center(
+                                        child: Column(
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: [
+                                            Icon(
+                                              Icons.workspace_premium,
+                                              color: Colors.white,
+                                              size: 24,
+                                            ),
+                                            SizedBox(height: 4),
+                                            Text(
+                                              'VIP',
+                                              style: TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        
+                        // 钱包按钮
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const PumoLoveHeartShopScreen(),
+                                ),
+                              );
+                            },
+                            child: Container(
+                              height: 80,
+                              margin: const EdgeInsets.only(left: 8),
+                              
+                              child: ClipRRect(
+                                child: Image.asset(
+                                  'assets/resources/pumo_me_wallet_compressed.webp',
+                                  fit: BoxFit.contain,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return Container(
+                                      decoration: BoxDecoration(
+                                        gradient: LinearGradient(
+                                          colors: [
+                                            PumoTheme.accentColor.withOpacity(0.8),
+                                            PumoTheme.primaryColor.withOpacity(0.8),
+                                          ],
+                                        ),
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                      child: const Center(
+                                        child: Column(
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: [
+                                            Icon(
+                                              Icons.favorite,
+                                              color: Colors.white,
+                                              size: 24,
+                                            ),
+                                            SizedBox(height: 4),
+                                            Text(
+                                              'Wallet',
+                                              style: TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                     
                     const SizedBox(height: 20),

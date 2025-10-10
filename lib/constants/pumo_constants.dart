@@ -10,11 +10,16 @@ class PumoConstants {
   static const String charactersKey = 'ai_characters';
   static const String chatHistoryKey = 'chat_history';
   static const String userPreferencesKey = 'user_preferences';
+  static const String goldCoinsKey = 'petCoins';
+  static const String unlockedCharactersKey = 'unlocked_characters';
   
   // Default Character Settings
   static const String defaultCharacterName = 'AI Assistant';
   static const String defaultCharacterDescription = 'A helpful AI assistant';
   static const String defaultCharacterPersonality = 'Friendly and helpful';
+  
+  // Character Unlock Settings
+  static const int characterUnlockCost = 88;
   
   // UI Constants
   static const double defaultPadding = 16.0;
