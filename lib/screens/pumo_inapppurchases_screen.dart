@@ -130,7 +130,7 @@ class _PumoLoveHeartShopScreenState extends State<PumoLoveHeartShopScreen> with 
       debugPrint('InAppPurchase initialized successfully');
       
       if (response.productDetails.isEmpty) {
-        _showSnackBar("No products available");
+        // _showSnackBar("No products available");
       }
     } catch (e) {
       debugPrint('Error loading products: $e');
